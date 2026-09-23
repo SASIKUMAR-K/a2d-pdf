@@ -7,12 +7,6 @@ on:
       - "frontend/**"
       - "firebase.json"
       - ".firebaserc"
-  pull_request:
-    branches: [main]
-    paths:
-      - "frontend/**"
-      - "firebase.json"
-      - ".firebaserc"
 
 jobs:
   deploy-frontend:
