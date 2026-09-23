@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "a2dpdf"
+  },
+  "targets": {
+    "a2dpdf": {
+      "hosting": {
+        "a2dpdf": ["a2dpdf"]
+      }
+    }
+  }
+}
