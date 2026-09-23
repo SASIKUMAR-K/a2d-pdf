@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import types
 
-app = FastAPI(title="a2d-pdf API", version="1.0.1")
+app = FastAPI(title="a2d-pdf API", version="1.0.2")
 
 app.add_middleware(
     CORSMiddleware,
