@@ -214,41 +214,58 @@ async def digitalize(file: UploadFile = File(...)):
         # Convert PDF pages to images
         images = pdf_to_images(tmp_path)
 
-        # Build parts: all page images + prompt
-        parts = []
-        for img_bytes in images:
-            parts.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
-        parts.append(EXTRACT_PROMPT)
-
-        # Send to Gemini with retry on 503
+        # Process pages one by one and combine results
         client = genai.Client(api_key=API_KEY)
-        response = None
-        for attempt in range(3):
-            try:
-                chat = client.chats.create(model=MODEL)
-                response = chat.send_message(
-                    parts,
-                    config=types.GenerateContentConfig(
-                        temperature=0,
-                        max_output_tokens=65536,
+        all_pages = []
+        doc_title = Path(file.filename).stem
+        doc_type = "Document"
+
+        for i, img_bytes in enumerate(images):
+            page_num = i + 1
+            parts = [
+                types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
+                EXTRACT_PROMPT + f"\n\nThis is page {page_num} of {len(images)}."
+            ]
+            for attempt in range(3):
+                try:
+                    chat = client.chats.create(model=MODEL)
+                    response = chat.send_message(
+                        parts,
+                        config=types.GenerateContentConfig(
+                            temperature=0,
+                            max_output_tokens=65536,
+                        )
                     )
-                )
-                break
-            except Exception as e:
-                if attempt < 2 and "503" in str(e):
-                    time.sleep(5)
-                    continue
-                raise
+                    break
+                except Exception as e:
+                    if attempt < 2 and "503" in str(e):
+                        time.sleep(5)
+                        continue
+                    raise
 
-        raw = response.text.strip()
+            raw = response.text
+            if not raw:
+                raise HTTPException(status_code=500, detail=f"Gemini returned empty response on page {page_num}")
+            raw = raw.strip()
 
-        # Strip markdown fences if present
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1]
-        if raw.endswith("```"):
-            raw = raw.rsplit("```", 1)[0].strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1]
+            if raw.endswith("```"):
+                raw = raw.rsplit("```", 1)[0].strip()
 
-        data = json.loads(raw)
+            page_data = json.loads(raw)
+
+            # Grab title/type from first page
+            if page_num == 1:
+                doc_title = page_data.get("title", doc_title)
+                doc_type  = page_data.get("document_type", doc_type)
+
+            # Collect pages
+            for p in page_data.get("pages", []):
+                p["page_number"] = page_num
+                all_pages.append(p)
+
+        data = {"title": doc_title, "document_type": doc_type, "pages": all_pages, "summary": {"total_pages": len(all_pages)}}
         filename = Path(file.filename).stem
         html = build_html(data, filename)
 
