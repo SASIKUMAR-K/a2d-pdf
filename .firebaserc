@@ -1,9 +1,9 @@
 {
   "projects": {
-    "default": "a2dpdf"
+    "default": "overall-project-b04ff"
   },
   "targets": {
-    "a2dpdf": {
+    "overall-project-b04ff": {
       "hosting": {
         "a2dpdf": ["a2dpdf"]
       }
